@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
+  <title>API Tap</title>
+  <link rel="stylesheet" href="coderay.css" />
+</head>
+<body>
+<div class="file" id="lib/apitap.rb"><pre>
+<div class="CodeRay">
+  <div class="code"><pre>require <span class="s"><span class="dl">'</span><span class="k">coderay</span><span class="dl">'</span></span>
+require <span class="s"><span class="dl">'</span><span class="k">nokogiri</span><span class="dl">'</span></span>
+require <span class="s"><span class="dl">'</span><span class="k">fileutils</span><span class="dl">'</span></span>
+require <span class="s"><span class="dl">'</span><span class="k">erb</span><span class="dl">'</span></span>
+
+require <span class="s"><span class="dl">'</span><span class="k">apitap/cli</span><span class="dl">'</span></span>
+
+<span class="c">#</span>
+<span class="r">class</span> <span class="cl">APITap</span>
+
+  <span class="c">#</span>
+  <span class="co">DIRECTORY</span> = <span class="co">File</span>.dirname(<span class="pc">__FILE__</span>)
+
+  <span class="r">def</span> <span class="fu" id="fu-initialize">initialize</span>(scripts)
+    files = scripts.map <span class="r">do</span> |glob|
+      glob = <span class="co">File</span>.join(glob, <span class="s"><span class="dl">'</span><span class="k">**/*</span><span class="dl">'</span></span>) <span class="r">if</span> <span class="co">File</span>.directory?(glob)
+      <span class="co">Dir</span>[glob]
+    <span class="r">end</span>.flatten
+    <span class="iv">@scripts</span> = files.select{ |f| <span class="co">File</span>.file?(f) &amp;&amp; <span class="co">File</span>.extname(f) == <span class="s"><span class="dl">'</span><span class="k">.rb</span><span class="dl">'</span></span> }  <span class="c"># TODO: more than just .rb</span>
+  <span class="r">end</span>
+
+  <span class="c"># list of source files</span>
+  <span class="r">def</span> <span class="fu" id="fu-scripts">scripts</span>
+    <span class="iv">@scripts</span>
+  <span class="r">end</span>
+
+  <span class="c"># build single html page with each file</span>
+  <span class="r">def</span> <span class="fu" id="fu-build">build</span>
+    html = []
+    scripts.each <span class="r">do</span> |script|
+      code = <span class="co">File</span>.read(script)
+      html &lt;&lt; <span class="s"><span class="dl">%[</span><span class="k">&lt;div class="file" id="</span><span class="il"><span class="idl">#{</span>script<span class="idl">}</span></span><span class="k">"&gt;&lt;pre&gt;</span><span class="dl">]</span></span>
+      html &lt;&lt; highlight(code)
+      html &lt;&lt; <span class="s"><span class="dl">%[</span><span class="k">&lt;/pre&gt;&lt;/div&gt;</span><span class="dl">]</span></span>
+    <span class="r">end</span>
+    text = html.join(<span class="s"><span class="dl">"</span><span class="ch">\n</span><span class="dl">"</span></span>)
+    text = interlink(text)
+    text = garnish(text)
+    text
+  <span class="r">end</span>
+
+  <span class="c"># run syntax highlighter over all code</span>
+  <span class="r">def</span> <span class="fu" id="fu-highlight">highlight</span>(code)
+    <span class="co">CodeRay</span>.scan(code, <span class="sy">:ruby</span>).div(<span class="sy">:css</span> =&gt; <span class="sy">:class</span>)
+  <span class="r">end</span>
+
+  <span class="c"># generate interlinks</span>
+  <span class="r">def</span> <span class="fu" id="fu-interlink">interlink</span>(text)
+    html = <span class="co">Nokogiri</span>::<span class="co">HTML</span>.fragment(text)
+    meths = []
+    html.css(<span class="s"><span class="dl">'</span><span class="k">.fu</span><span class="dl">'</span></span>).each <span class="r">do</span> |node|
+      meths &lt;&lt; node.text
+      node[<span class="s"><span class="dl">'</span><span class="k">id</span><span class="dl">'</span></span>] = <span class="s"><span class="dl">"</span><span class="k">fu-</span><span class="il"><span class="idl">#{</span>node.text<span class="idl">}</span></span><span class="dl">"</span></span>
+    <span class="r">end</span>
+    meths.each <span class="r">do</span> |meth|
+      html.xpath(<span class="s"><span class="dl">"</span><span class="k">//*[contains(text(),'</span><span class="il"><span class="idl">#{</span>meth<span class="idl">}</span></span><span class="k">')]</span><span class="dl">"</span></span>).each <span class="r">do</span> |node|
+<span class="gv">$stderr</span> &lt;&lt; node.inner_html
+        node.inner_html = node.inner_html.gsub(meth, <span class="s"><span class="dl">%{</span><span class="k">&lt;a href="fu-</span><span class="il"><span class="idl">#{</span>meth<span class="idl">}</span></span><span class="k">"&gt;</span><span class="il"><span class="idl">#{</span>meth<span class="idl">}</span></span><span class="k">&lt;/a&gt;</span><span class="dl">}</span></span>)
+      <span class="r">end</span>
+    <span class="r">end</span>
+    html.to_s
+  <span class="r">end</span>
+
+  <span class="c"># add any additional elements (toc, serachbar)</span>
+  <span class="r">def</span> <span class="fu" id="fu-garnish">garnish</span>(html)
+    template{ html }
+  <span class="r">end</span>
+
+  <span class="c">#</span>
+  <span class="r">def</span> <span class="fu" id="fu-template">template</span>(&amp;block)
+    tmp = <span class="co">File</span>.read(<span class="co">File</span>.join(<span class="co">DIRECTORY</span>, <span class="s"><span class="dl">'</span><span class="k">apitap</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">template.rhtml</span><span class="dl">'</span></span>))
+    erb = <span class="co">ERB</span>.new(tmp)
+    erb.result(binding)
+  <span class="r">end</span>
+
+  <span class="c">#</span>
+  <span class="r">def</span> <span class="fu" id="fu-save">save</span>(output)
+    output ||= <span class="s"><span class="dl">'</span><span class="k">tap</span><span class="dl">'</span></span>
+    <span class="co">FileUtils</span>.mkdir_p(output)
+    index = <span class="co">File</span>.join(output, <span class="s"><span class="dl">'</span><span class="k">index.html</span><span class="dl">'</span></span>)
+    <span class="co">File</span>.open(index, <span class="s"><span class="dl">'</span><span class="k">w</span><span class="dl">'</span></span>){ |f| f &lt;&lt; build }
+    <span class="co">FileUtils</span>.cp(<span class="co">File</span>.join(<span class="co">DIRECTORY</span>, <span class="s"><span class="dl">'</span><span class="k">apitap</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">coderay.css</span><span class="dl">'</span></span>), output)
+  <span class="r">end</span>
+
+<span class="r">end</span>
+
+</pre></div>
+</div>
+
+</pre></div>
+<div class="file" id="lib/apitap/cli.rb"><pre>
+<div class="CodeRay">
+  <div class="code"><pre><span class="r">class</span> <span class="cl">APITap</span>
+
+  <span class="c">#</span>
+  <span class="r">def</span> <span class="pc">self</span>.<span class="fu" id="fu-cli">cli</span>(argv=<span class="pc">ARGV</span>)
+    require <span class="s"><span class="dl">'</span><span class="k">optparse</span><span class="dl">'</span></span>
+
+    cli_parser.parse!(argv)
+
+    output = cli_options[<span class="sy">:output</span>]
+    files  = argv
+
+    apitap = new(files)
+
+    <span class="r">if</span> output
+      apitap.save(output)
+    <span class="r">else</span>
+      puts apitap.build
+    <span class="r">end</span>
+  <span class="r">end</span>
+
+  <span class="c">#</span>
+  <span class="r">def</span> <span class="pc">self</span>.<span class="fu" id="fu-cli_parser">cli_parser</span>
+    <span class="co">OptionParser</span>.new <span class="r">do</span> |opt|
+      opt.on(<span class="s"><span class="dl">'</span><span class="k">-o</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">--output=DIR</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">save to output directory</span><span class="dl">'</span></span>) <span class="r">do</span> |dir|
+        cli_options[<span class="sy">:output</span>] = dir
+      <span class="r">end</span>
+      opt.on_tail(<span class="s"><span class="dl">'</span><span class="k">--help</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">show this help message</span><span class="dl">'</span></span>) <span class="r">do</span>
+        puts opt
+        exit
+      <span class="r">end</span>
+      opt.on_tail(<span class="s"><span class="dl">'</span><span class="k">--debug</span><span class="dl">'</span></span>, <span class="s"><span class="dl">'</span><span class="k">run in debug mode</span><span class="dl">'</span></span>) <span class="r">do</span>
+        <span class="gv">$DEBUG</span> = <span class="pc">true</span>
+      <span class="r">end</span>
+    <span class="r">end</span>
+  <span class="r">end</span>
+
+  <span class="c">#</span>
+  <span class="r">def</span> <span class="pc">self</span>.<span class="fu" id="fu-cli_options">cli_options</span>
+    <span class="iv">@cli_options</span> ||= {}
+  <span class="r">end</span>
+
+<span class="r">end</span>
+</pre></div>
+</div>
+
+</pre></div>
+</body>
+</html>

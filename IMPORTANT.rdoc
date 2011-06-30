@@ -1,0 +1,7 @@
+= IMPORTANT NOTE
+
+APITap project has been scrapped because there is a much better project
+that exists already called Reflexive.
+
+Use that instead. And contribute to it's improvement.
+

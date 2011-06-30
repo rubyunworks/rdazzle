@@ -1,0 +1,7 @@
+= API Tap
+
+Tap into your code.
+
+API-Tap takes a snap shot of your application's source and constructs
+and highlighted and interlinked navigable rendering of it.
+

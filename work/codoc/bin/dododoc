@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+require 'dododoc/command'
+Dododoc::Command.main(*ARGV)

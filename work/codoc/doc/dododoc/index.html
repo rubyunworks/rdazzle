@@ -1,0 +1,50 @@
+<h1>Command</h1>
+<p>
+The Dododoc command provides the commandline
+</p>
+<p>
+interface for generating dododocumentation.
+</p>
+<h2>main</h2>
+<p>
+The main method is a shortcut that initializes
+</p>
+<p>
+the Command class and then invokes #run.
+</p>
+<h2>name</h2>
+<p>
+Name of the project. Will be pulled from VERSION file is present,
+</p>
+<p>
+unless otherwise give as a commandline option.
+</p>
+<h2>output</h2>
+<p>
+Where to save generated dododocuments.
+</p>
+<h2>version</h2>
+<p>
+Hash of version information parsed from VERSION project file.
+</p>
+<h2>run</h2>
+<p>
+Parse files and save them results.
+</p>
+<br/><h2>script</h2>
+<p>
+TODO: no .rb ?
+</p>
+<br/><p>
+m.add_special(/\b([A-Z][a-z]+[A-Z]\w+)/, :WIKIWORD)
+</p>
+<p>
+def handle_special_WIKIWORD(special)
+</p>
+<p>
+&#8220;<font color=red>&#8221; + special.text + &#8220;</font>&#8220;
+</p>
+<p>
+end
+</p>
+<br/>

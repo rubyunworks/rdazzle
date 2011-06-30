@@ -1,0 +1,14 @@
+= Tracer
+
+Require the library.
+
+  require 'dododoc/tracer'
+
+Now apply it.
+
+  tracer = Dododoc::Tracer.new('test/fixtures/example.rb')
+
+  tracer.analyize.each{ |k,v| puts; p k, v }
+
+The end.
+
